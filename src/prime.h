@@ -111,7 +111,7 @@ std::string GetPrimeOriginPrimorialForm(CBigNum& bnPrimeChainOrigin);
 /********************/
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& nChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev);
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& n5ChainsHit, unsigned int& n6ChainsHit, unsigned int& n7ChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev);
 
 // Estimate the probability of primality for a number in a candidate chain
 double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum);
@@ -144,7 +144,7 @@ class CSieveOfEratosthenes
     unsigned int nSieveSize; // size of the sieve
     unsigned int nSievePercentage; // weave up to a percentage of primes
     unsigned int nSieveExtensions; // extend the sieve a given number of times
-    unsigned int nBits; // target of the prime chain to search for
+    //unsigned int nBits; // target of the prime chain to search for
     mpz_class mpzHash; // hash of the block header
     mpz_class mpzFixedMultiplier; // fixed round multiplier
 
@@ -193,7 +193,7 @@ public:
         this->nSieveSize = nSieveSize;
         this->nSievePercentage = nSievePercentage;
         this->nSieveExtensions = nSieveExtensions;
-        this->nBits = nBits;
+        //this->nBits = nBits;
         this->mpzHash = mpzHash;
         this->mpzFixedMultiplier = mpzFixedMultiplier;
         this->pindexPrev = pindexPrev;
@@ -221,7 +221,12 @@ public:
         memset(vfExtendedCompositeBiTwin, 0, nSieveExtensions * nCandidatesBytes);
         memset(vfExtendedCompositeCunningham1, 0, nSieveExtensions * nCandidatesBytes);
         memset(vfExtendedCompositeCunningham2, 0, nSieveExtensions * nCandidatesBytes);
-        nChainLength = TargetGetLength(nBits);
+        
+
+        //nChainLength = TargetGetLength(nBits);
+        nChainLength = nBits;
+        
+
         nSieveLayers = nChainLength + nSieveExtensions;
 
         // Process only a set percentage of the primes

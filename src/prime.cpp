@@ -15,6 +15,12 @@ unsigned int nSieveSize = nDefaultSieveSize;
 unsigned int nSievePercentage = nDefaultSievePercentage;
 unsigned int nSieveExtensions = nDefaultSieveExtensions;
 
+unsigned int nBestChainLength = 0;
+unsigned int fractionBins[101];
+unsigned int testBins[20];
+unsigned int primeBins[20];
+
+
 static unsigned int int_invert(unsigned int a, unsigned int nPrime);
 
 void GeneratePrimeTable()
@@ -638,36 +644,37 @@ static bool EulerLagrangeLifchitzPrimalityTestFast(const mpz_class& n, bool fSop
 // Return value:
 //   true - Probable Cunningham Chain found (length at least 2)
 //   false - Not Cunningham Chain
-static bool ProbableCunninghamChainTestFast(const mpz_class& n, bool fSophieGermain, bool fFermatTest, unsigned int& nProbableChainLength, CPrimalityTestParams& testParams)
+static bool ProbableCunninghamChainTestFast(const mpz_class& n, bool fSophieGermain, unsigned int& nProbableChainLength, CPrimalityTestParams& testParams)
 {
     nProbableChainLength = 0;
-
+    testBins[0]++;
     // Fermat test for n first
     if (!FermatProbablePrimalityTestFast(n, nProbableChainLength, testParams, true))
         return false;
 
+    primeBins[0]++;
+
     // Euler-Lagrange-Lifchitz test for the following numbers in chain
     mpz_class &N = testParams.N;
     N = n;
+    int chainLen;
     while (true)
     {
         TargetIncrementLength(nProbableChainLength);
+        chainLen = TargetGetLength(nProbableChainLength);
+        testBins[chainLen]++;
+
         N <<= 1;
         N += (fSophieGermain? 1 : (-1));
-        if (fFermatTest)
-        {
-            if (!FermatProbablePrimalityTestFast(N, nProbableChainLength, testParams))
-                break;
-        }
-        else
-        {
-            if (!EulerLagrangeLifchitzPrimalityTestFast(N, fSophieGermain, nProbableChainLength, testParams))
-                break;
-        }
-    }
+        if (!EulerLagrangeLifchitzPrimalityTestFast(N, fSophieGermain, nProbableChainLength, testParams))
+            break;
 
+        primeBins[chainLen]++;
+    }
     return (TargetGetLength(nProbableChainLength) >= 2);
 }
+
+
 
 // Test probable prime chain for: nOrigin
 // Return value:
@@ -686,23 +693,23 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
     if (nCandidateType == PRIME_CHAIN_CUNNINGHAM1)
     {
         mpzOriginMinusOne = mpzPrimeChainOrigin - 1;
-        ProbableCunninghamChainTestFast(mpzOriginMinusOne, true, false, nChainLength, testParams);
+        ProbableCunninghamChainTestFast(mpzOriginMinusOne, true, nChainLength, testParams);
     }
     else if (nCandidateType == PRIME_CHAIN_CUNNINGHAM2)
     {
         // Test for Cunningham Chain of second kind
         mpzOriginPlusOne = mpzPrimeChainOrigin + 1;
-        ProbableCunninghamChainTestFast(mpzOriginPlusOne, false, false, nChainLength, testParams);
+        ProbableCunninghamChainTestFast(mpzOriginPlusOne, false, nChainLength, testParams);
     }
     else
     {
         unsigned int nChainLengthCunningham1 = 0;
         unsigned int nChainLengthCunningham2 = 0;
         mpzOriginMinusOne = mpzPrimeChainOrigin - 1;
-        if (ProbableCunninghamChainTestFast(mpzOriginMinusOne, true, false, nChainLengthCunningham1, testParams))
+        if (ProbableCunninghamChainTestFast(mpzOriginMinusOne, true, nChainLengthCunningham1, testParams))
         {
             mpzOriginPlusOne = mpzPrimeChainOrigin + 1;
-            ProbableCunninghamChainTestFast(mpzOriginPlusOne, false, false, nChainLengthCunningham2, testParams);
+            ProbableCunninghamChainTestFast(mpzOriginPlusOne, false, nChainLengthCunningham2, testParams);
             // Figure out BiTwin Chain length
             // BiTwin Chain allows a single prime at the end for odd length chain
             nChainLength =
@@ -719,13 +726,15 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
 boost::thread_specific_ptr<CSieveOfEratosthenes> psieve;
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& nChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev)
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& n5ChainsHit, unsigned int& n6ChainsHit, unsigned int& n7ChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev)
 {
     CSieveOfEratosthenes *lpsieve;
     nProbableChainLength = 0;
     nTests = 0;
     nPrimesHit = 0;
-    nChainsHit = 0;
+    n5ChainsHit = 0;
+    n6ChainsHit = 0;
+    n7ChainsHit = 0;
     const unsigned int nBits = block.nBits;
 
     if (fNewBlock && psieve.get() != NULL)
@@ -740,7 +749,10 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
     {
         // Build sieve
         nStart = GetTimeMicros();
-        lpsieve = new CSieveOfEratosthenes(nSieveSize, nSievePercentage, nSieveExtensions, nBits, mpzHash, mpzFixedMultiplier, pindexPrev);
+
+        unsigned int sieveDepth = 9;
+
+        lpsieve = new CSieveOfEratosthenes(nSieveSize, nSievePercentage, nSieveExtensions, sieveDepth /*nBits*/, mpzHash, mpzFixedMultiplier, pindexPrev);
         while (lpsieve->Weave() && pindexPrev == pindexBest);
         nSieveGenTime = GetTimeMicros() - nStart;
         if (fDebug && GetBoolArg("-printmining"))
@@ -796,11 +808,61 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             nProbableChainLength = nChainLength;
             return true;
         }
+
+
+
         nProbableChainLength = nChainLength;
         if(TargetGetLength(nProbableChainLength) >= 1)
             nPrimesHit++;
         if(TargetGetLength(nProbableChainLength) >= nStatsChainLength)
-            nChainsHit++;
+        {
+            unsigned int chainLen = TargetGetLength(nProbableChainLength);
+            if (chainLen == 5) n5ChainsHit++;
+            else if (chainLen == 6) n6ChainsHit++;
+            else if (chainLen == 7) n7ChainsHit++;
+
+            if (chainLen >= 6)
+            {
+                /*
+                double k2 = GetPrimeDifficulty(nProbableChainLength);
+                double k1 = k2 - (double)chainLen;
+                int k = (int)(k1*100.0);
+                fractionBins[k]++;
+                printf("%.8g - %u", k2, k);
+                for (int i = 0 ; i < 101; i++)
+                {
+                   printf("%u ", fractionBins[i]);  
+                }
+                printf("\n");
+                */
+
+                printf("\n");
+                for (int i = 0; i < 20; i++)
+                {
+                    double percentPrimeFound = (double)primeBins[i] / (double) testBins[i];
+                   printf("%.5g  ", percentPrimeFound);
+                }
+                printf("\n");
+
+                if (nProbableChainLength >= nBestChainLength) {   
+                    nBestChainLength = nProbableChainLength;
+                    double best = GetPrimeDifficulty(nBestChainLength);
+                    printf("New max mined: %.8g\n", best);
+                }
+                else if (TargetGetLength(nProbableChainLength) >= 8)
+                {
+                    double best = GetPrimeDifficulty(nBestChainLength);
+                    double longChainLen = GetPrimeDifficulty(nProbableChainLength);
+                   printf("*** Found long chain: %.8g, max mined: %.8g\n", longChainLen, best); 
+                }
+            }
+        }
+
+
+
+
+
+        
         // Debugging
 #if 0
         if(TargetGetLength(nProbableChainLength) >= 1)

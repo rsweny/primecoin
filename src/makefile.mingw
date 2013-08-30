@@ -16,21 +16,36 @@
 # 'make clean' assumes it is running inside a MSYS shell, and uses 'rm'
 # to remove files.
 
-CXX ?= g++
+#CXX ?= g++
+CXX ?= x86_64-w64-mingw311-g++
 
 USE_UPNP:=-
 USE_IPV6:=1
 
-DEPSDIR?=/usr/local
-BOOST_SUFFIX?=-mgw46-mt-sd-1_52
+#DEPSDIR?=/usr/local
+#BOOST_SUFFIX?=-mgw46-mt-sd-1_54
+BOOST_SUFFIX?=-mgw48-mt-sd-1_54
 
-INCLUDEPATHS= \
+
+ INCLUDEPATHS= \
  -I"$(CURDIR)" \
- -I"$(DEPSDIR)/include"
+ -I"$(CURDIR)"/obj \
+ -I"c:/data/miner2/deps/boost_1_54_0" \
+ -I"c:/data/miner2/deps/boost_1_54_0/boost" \
+ -I"c:/data/miner2/deps/boost_1_54_0/boost/algorithm/string/" \
+ -I"c:/data/miner2/deps/boost_1_54_0/libs" \
+ -I"c:/data/miner2/deps/boost_1_54_0/stage/lib" \
+ -I"c:/data/miner2/deps/db-4.8.30.NC/build_unix" \
+ -I"c:/data/miner2/deps/openssl-1.0.1e/include" \
+ -I"c:/data/miner2/deps/gmpcore510/include" \
+ -I"c:/data/miner2/deps"
 
 LIBPATHS= \
  -L"$(CURDIR)/leveldb" \
- -L"$(DEPSDIR)/lib"
+ -L"c:/data/miner2/deps/boost_1_54_0/stage/lib" \
+ -L"c:/data/miner2/deps/db-4.8.30.NC/build_unix" \
+ -L"c:/data/miner2/deps/openssl-1.0.1e" \
+ -L"c:/data/miner2/deps/gmpcore510/lib"
 
 LIBS= \
  -l leveldb \
@@ -45,11 +60,11 @@ LIBS= \
  -l crypto \
  -l gmp
 
-DEFS=-DWIN32 -D_WINDOWS -DBOOST_THREAD_USE_LIB -DBOOST_SPIRIT_THREADSAFE
+DEFS=-DWIN32_LEAN_AND_MEAN -D_WINDOWS -DBOOST_THREAD_USE_LIB -DBOOST_SPIRIT_THREADSAFE -DBOOST_USE_WINDOWS_H
 DEBUGFLAGS=-g
-CFLAGS=-mthreads -O2 -w -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter $(DEBUGFLAGS) $(DEFS) $(INCLUDEPATHS)
+CFLAGS=-march=core2 -mthreads -O2 -w -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter $(DEBUGFLAGS) $(DEFS) $(INCLUDEPATHS)
 # enable: ASLR, DEP and large address aware
-LDFLAGS=-Wl,--dynamicbase -Wl,--nxcompat -Wl,--large-address-aware
+LDFLAGS=-Wl,--dynamicbase -Wl,--nxcompat -static
 
 TESTDEFS = -DTEST_DATA_DIR=$(abspath test/data)
 
@@ -65,7 +80,7 @@ ifneq (${USE_IPV6}, -)
 	DEFS += -DUSE_IPV6=$(USE_IPV6)
 endif
 
-LIBS += -l kernel32 -l user32 -l gdi32 -l comdlg32 -l winspool -l winmm -l shell32 -l comctl32 -l ole32 -l oleaut32 -l uuid -l rpcrt4 -l advapi32 -l ws2_32 -l mswsock -l shlwapi
+LIBS += -l kernel32 -l user32 -l gdi32 -l comdlg32 -l winspool -l winmm -l shell32 -l comctl32 -l ole32 -l oleaut32 -l uuid -l rpcrt4 -l advapi32 -l ws2_32 -l mswsock -l shlwapi -l m
 
 # TODO: make the mingw builds smarter about dependencies, like the linux/osx builds are
 HEADERS = $(wildcard *.h)
