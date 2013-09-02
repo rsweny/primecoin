@@ -111,7 +111,7 @@ std::string GetPrimeOriginPrimorialForm(CBigNum& bnPrimeChainOrigin);
 /********************/
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& n5ChainsHit, unsigned int& n6ChainsHit, unsigned int& n7ChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev);
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& n5ChainsHit, unsigned int& n6ChainsHit, unsigned int& n7ChainsHit, unsigned int& n8ChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev);
 
 // Estimate the probability of primality for a number in a candidate chain
 double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum);

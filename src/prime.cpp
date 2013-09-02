@@ -647,29 +647,29 @@ static bool EulerLagrangeLifchitzPrimalityTestFast(const mpz_class& n, bool fSop
 static bool ProbableCunninghamChainTestFast(const mpz_class& n, bool fSophieGermain, unsigned int& nProbableChainLength, CPrimalityTestParams& testParams)
 {
     nProbableChainLength = 0;
-    testBins[0]++;
+    //testBins[0]++;
     // Fermat test for n first
     if (!FermatProbablePrimalityTestFast(n, nProbableChainLength, testParams, true))
         return false;
 
-    primeBins[0]++;
+    //primeBins[0]++;
 
     // Euler-Lagrange-Lifchitz test for the following numbers in chain
     mpz_class &N = testParams.N;
     N = n;
-    int chainLen;
+    //unsigned int chainLen;
     while (true)
     {
         TargetIncrementLength(nProbableChainLength);
-        chainLen = TargetGetLength(nProbableChainLength);
-        testBins[chainLen]++;
+        //chainLen = TargetGetLength(nProbableChainLength);
+        //testBins[chainLen]++;
 
         N <<= 1;
         N += (fSophieGermain? 1 : (-1));
         if (!EulerLagrangeLifchitzPrimalityTestFast(N, fSophieGermain, nProbableChainLength, testParams))
             break;
 
-        primeBins[chainLen]++;
+        //primeBins[chainLen]++;
     }
     return (TargetGetLength(nProbableChainLength) >= 2);
 }
@@ -726,7 +726,7 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
 boost::thread_specific_ptr<CSieveOfEratosthenes> psieve;
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& n5ChainsHit, unsigned int& n6ChainsHit, unsigned int& n7ChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev)
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& n5ChainsHit, unsigned int& n6ChainsHit, unsigned int& n7ChainsHit, unsigned int& n8ChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev)
 {
     CSieveOfEratosthenes *lpsieve;
     nProbableChainLength = 0;
@@ -735,6 +735,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
     n5ChainsHit = 0;
     n6ChainsHit = 0;
     n7ChainsHit = 0;
+    n8ChainsHit = 0;
     const unsigned int nBits = block.nBits;
 
     if (fNewBlock && psieve.get() != NULL)
@@ -806,6 +807,9 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             printf("Probable prime chain found for block=%s!!\n  Target: %s\n  Chain: %s\n", block.GetHash().GetHex().c_str(),
                 TargetToString(block.nBits).c_str(), GetPrimeChainName(nCandidateType, nChainLength).c_str());
             nProbableChainLength = nChainLength;
+
+            double longChainLen = GetPrimeDifficulty(nProbableChainLength);
+            printf("***BLOCK Long chain mined: %.8g\n", longChainLen);
             return true;
         }
 
@@ -820,6 +824,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             if (chainLen == 5) n5ChainsHit++;
             else if (chainLen == 6) n6ChainsHit++;
             else if (chainLen == 7) n7ChainsHit++;
+            else if (chainLen == 8) n8ChainsHit++;
 
             if (chainLen >= 6)
             {
@@ -834,7 +839,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
                    printf("%u ", fractionBins[i]);  
                 }
                 printf("\n");
-                */
+                
 
                 printf("\n");
                 for (int i = 0; i < 20; i++)
@@ -843,17 +848,18 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
                    printf("%.5g  ", percentPrimeFound);
                 }
                 printf("\n");
+                */
 
                 if (nProbableChainLength >= nBestChainLength) {   
                     nBestChainLength = nProbableChainLength;
                     double best = GetPrimeDifficulty(nBestChainLength);
                     printf("New max mined: %.8g\n", best);
                 }
-                else if (TargetGetLength(nProbableChainLength) >= 8)
+                if (TargetGetLength(nProbableChainLength) >= 9)
                 {
                     double best = GetPrimeDifficulty(nBestChainLength);
                     double longChainLen = GetPrimeDifficulty(nProbableChainLength);
-                   printf("*** Found long chain: %.8g, max mined: %.8g\n", longChainLen, best); 
+                   printf("*** Long chain mined: %.8g, max: %.8g\n", longChainLen, best); 
                 }
             }
         }

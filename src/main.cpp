@@ -75,6 +75,7 @@ double dPrimeProbability = 0.0;
 double d5ChainsPerHour = 0.0;
 double d6ChainsPerHour = 0.0;
 double d7ChainsPerHour = 0.0;
+double d8ChainsPerHour = 0.0;
 
 double dChainsPerDay = 0.0;
 int64 nHPSTimerStart = 0;
@@ -4661,6 +4662,7 @@ void static BitcoinMiner(CWallet *pwallet)
             unsigned int n5ChainsHit = 0;
             unsigned int n6ChainsHit = 0;
             unsigned int n7ChainsHit = 0;
+            unsigned int n8ChainsHit = 0;
 
             // Primecoin: adjust round primorial so that the generated prime candidates meet the minimum
             mpz_class mpzMultiplierMin = mpzPrimeMin * nHashFactor / mpzHash + 1;
@@ -4679,7 +4681,7 @@ void static BitcoinMiner(CWallet *pwallet)
 
             // Primecoin: mine for prime chain
             unsigned int nProbableChainLength;
-            if (MineProbablePrimeChain(*pblock, mpzFixedMultiplier, fNewBlock, nTriedMultiplier, nProbableChainLength, nTests, nPrimesHit, n5ChainsHit, n6ChainsHit, n7ChainsHit, mpzHash, nPrimorialMultiplier, nSieveGenTime, pindexPrev))
+            if (MineProbablePrimeChain(*pblock, mpzFixedMultiplier, fNewBlock, nTriedMultiplier, nProbableChainLength, nTests, nPrimesHit, n5ChainsHit, n6ChainsHit, n7ChainsHit, n8ChainsHit, mpzHash, nPrimorialMultiplier, nSieveGenTime, pindexPrev))
             {
                 SetThreadPriority(THREAD_PRIORITY_NORMAL);
                 CheckWork(pblock, *pwalletMain, reservekey);
@@ -4695,6 +4697,7 @@ void static BitcoinMiner(CWallet *pwallet)
             static volatile int64 n5ChainCounter;
             static volatile int64 n6ChainCounter;
             static volatile int64 n7ChainCounter;
+            static volatile int64 n8ChainCounter;
             static double dChainExpected;
             int64 nMillisNow = GetTimeMillis();
             if (nHPSTimerStart == 0)
@@ -4707,21 +4710,22 @@ void static BitcoinMiner(CWallet *pwallet)
             else
             {
 
-/*             
-#ifdef __GNUC__
+             
+/*#ifdef __GNUC__
                 // Use atomic increment
                 __sync_add_and_fetch(&nPrimeCounter, nPrimesHit);
                 __sync_add_and_fetch(&nTestCounter, nTests);
                 __sync_add_and_fetch(&n5ChainCounter, n5ChainsHit);
                 __sync_add_and_fetch(&n6ChainCounter, n6ChainsHit);
                 __sync_add_and_fetch(&n7ChainCounter, n7ChainsHit);
-#else
-*/
+#else*/
+
                 nPrimeCounter += nPrimesHit;
                 nTestCounter += nTests;
                 n5ChainCounter += n5ChainsHit;
                 n6ChainCounter += n6ChainsHit;
                 n7ChainCounter += n7ChainsHit;
+                n7ChainCounter += n8ChainsHit;
 //#endif
             }
             if (nMillisNow - nHPSTimerStart > 60000)
@@ -4743,6 +4747,8 @@ void static BitcoinMiner(CWallet *pwallet)
                         d5ChainsPerHour = ((double)n5ChainCounter / totalRunTime) * 3600000.0 + 0.0001;
                         d6ChainsPerHour = ((double)n6ChainCounter / totalRunTime) * 3600000.0 + 0.00001;
                         d7ChainsPerHour = ((double)n7ChainCounter / totalRunTime) * 3600000.0 + 0.000001;
+                        d8ChainsPerHour = ((double)n8ChainCounter / totalRunTime) * 3600000.0 + 0.0000001;
+
 
                         totalChainsPerDay += dChainsPerDay;
                         totalPrimorial += nPrimorialMultiplier;
@@ -4760,13 +4766,28 @@ void static BitcoinMiner(CWallet *pwallet)
                             printf("-- 5-chains/h: %3.5f\n", d5ChainsPerHour);
                             printf("-- 6-chains/h: %3.5f\n", d6ChainsPerHour);
                             printf("-- 7-chains/h: %3.5f\n", d7ChainsPerHour);
+                            printf("-- 8-chains/h: %3.5f\n", d8ChainsPerHour);
 
                             double chainRatio1 = d6ChainsPerHour / d5ChainsPerHour;
                             double chainRatio2 = d7ChainsPerHour / d6ChainsPerHour;
-                            double blocksPerDay = d7ChainsPerHour * 24 * chainRatio1 * chainRatio1 * 0.17 + d7ChainsPerHour * 24 * chainRatio1 * chainRatio1 * chainRatio1;
+
+                            unsigned int nTargetLength = TargetGetLength(pblock->nBits);
+                            double fullDifficulty = GetPrimeDifficulty(pblock->nBits);
+                            unsigned int chainLen = TargetGetLength(pblock->nBits);
+                            double fractionNines = 1 - (fullDifficulty - (double)chainLen);
+
+                            double blocksPerDay1 = 24 * (d7ChainsPerHour*chainRatio1*chainRatio1*fractionNines + d7ChainsPerHour*chainRatio1*chainRatio1*chainRatio1);
+                            double blocksPerDay2 = 24 * (d8ChainsPerHour*chainRatio2*fractionNines + d8ChainsPerHour*chainRatio2*chainRatio2);
+                            
+                            double blocksPerDay;
+                            if (n8ChainCounter > 0)
+                                blocksPerDay = (blocksPerDay1 + blocksPerDay2) / 2;
+                            else
+                                blocksPerDay = blocksPerDay1;
+
                             printf("-- Ratio 5,6: %.4f Ratio 6,7: %.4f\n", chainRatio1, chainRatio2);
 
-                            printf("%s stats %5.0f prime/s %6.0f test/s %3.6f chain/d | run:%3.2f, avg primorial: %3.1f blk/d: %.8g\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerSec, dTestsPerSecond, avgChainsPerDay, totalRunTime/(3600*1000), avgPrimorial, blocksPerDay);
+                            printf("%s stats %5.0f prime/s %6.0f test/s %3.6f chain/d | run:%3.2f, avg primorial: %3.1f block/d: %.8g\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerSec, dTestsPerSecond, avgChainsPerDay, totalRunTime/(3600*1000), avgPrimorial, blocksPerDay);
                         }
                     }
                 }
@@ -4862,7 +4883,7 @@ void static BitcoinMiner(CWallet *pwallet)
                         error("PrimecoinMiner() : primorial decrement overflow");
                 }
 
-                //if (nPrimorialMultiplier > 41) nPrimorialMultiplier = 29;
+                if (nPrimorialMultiplier > 37) nPrimorialMultiplier = 29;
 
                 Primorial(nPrimorialMultiplier, mpzPrimorial);
             }
