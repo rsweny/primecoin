@@ -4776,8 +4776,9 @@ void static BitcoinMiner(CWallet *pwallet)
                             unsigned int chainLen = TargetGetLength(pblock->nBits);
                             double fractionNines = 1 - (fullDifficulty - (double)chainLen);
 
-                            double blocksPerDay1 = 24 * (d7ChainsPerHour*chainRatio1*chainRatio1*fractionNines + d7ChainsPerHour*chainRatio1*chainRatio1*chainRatio1);
-                            double blocksPerDay2 = 24 * (d8ChainsPerHour*chainRatio2*fractionNines + d8ChainsPerHour*chainRatio2*chainRatio2);
+                            //0.005681 = 1 / ln(2^255) - chance of random prime in the range we are searching
+                            double blocksPerDay1 = 24 * (d7ChainsPerHour*chainRatio1*chainRatio1*fractionNines + d7ChainsPerHour*chainRatio1*chainRatio1*0.005681);
+                            double blocksPerDay2 = 24 * (d8ChainsPerHour*chainRatio2*fractionNines + d8ChainsPerHour*chainRatio2*0.005681);
                             
                             double blocksPerDay;
                             if (n8ChainCounter > 0)
