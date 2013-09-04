@@ -20,6 +20,10 @@ unsigned int fractionBins[101];
 unsigned int testBins[20];
 unsigned int primeBins[20];
 
+unsigned int cun1Chains = 0;
+unsigned int cun2Chains = 0;
+unsigned int twinChains = 0;
+
 
 static unsigned int int_invert(unsigned int a, unsigned int nPrime);
 
@@ -622,18 +626,22 @@ static bool EulerLagrangeLifchitzPrimalityTestFast(const mpz_class& n, bool fSop
         return true;
     }
     
-    // Failed test, calculate fractional length
-    mpz_mul(mpzE, mpzR, mpzR);
-    mpz_tdiv_r(mpzR, mpzE, n.get_mpz_t()); // derive Fermat test remainder
+    // Failed test, calculate fractional length if len >= 3
+    if (nLength >= 50331648)
+    {
+        mpz_mul(mpzE, mpzR, mpzR);
+        mpz_tdiv_r(mpzR, mpzE, n.get_mpz_t()); // derive Fermat test remainder
 
-    mpz_sub(mpzE, n.get_mpz_t(), mpzR);
-    mpz_mul_2exp(mpzR, mpzE, nFractionalBits);
-    mpz_tdiv_q(mpzE, mpzR, n.get_mpz_t());
-    unsigned int nFractionalLength = mpz_get_ui(mpzE);
-    
-    if (nFractionalLength >= (1 << nFractionalBits))
-        return error("EulerLagrangeLifchitzPrimalityTest() : fractional assert");
-    nLength = (nLength & TARGET_LENGTH_MASK) | nFractionalLength;
+        mpz_sub(mpzE, n.get_mpz_t(), mpzR);
+        mpz_mul_2exp(mpzR, mpzE, nFractionalBits);
+        mpz_tdiv_q(mpzE, mpzR, n.get_mpz_t());
+        unsigned int nFractionalLength = mpz_get_ui(mpzE);
+        
+        if (nFractionalLength >= (1 << nFractionalBits))
+            return error("EulerLagrangeLifchitzPrimalityTest() : fractional assert");
+        nLength = (nLength & TARGET_LENGTH_MASK) | nFractionalLength;
+    }
+
     return false;
 }
 
@@ -647,31 +655,24 @@ static bool EulerLagrangeLifchitzPrimalityTestFast(const mpz_class& n, bool fSop
 static bool ProbableCunninghamChainTestFast(const mpz_class& n, bool fSophieGermain, unsigned int& nProbableChainLength, CPrimalityTestParams& testParams)
 {
     nProbableChainLength = 0;
-    //testBins[0]++;
+
     // Fermat test for n first
     if (!FermatProbablePrimalityTestFast(n, nProbableChainLength, testParams, true))
         return false;
 
-    //primeBins[0]++;
-
     // Euler-Lagrange-Lifchitz test for the following numbers in chain
     mpz_class &N = testParams.N;
     N = n;
-    //unsigned int chainLen;
     while (true)
     {
         TargetIncrementLength(nProbableChainLength);
-        //chainLen = TargetGetLength(nProbableChainLength);
-        //testBins[chainLen]++;
 
         N <<= 1;
         N += (fSophieGermain? 1 : (-1));
         if (!EulerLagrangeLifchitzPrimalityTestFast(N, fSophieGermain, nProbableChainLength, testParams))
             break;
-
-        //primeBins[chainLen]++;
     }
-    return (TargetGetLength(nProbableChainLength) >= 2);
+    return (TargetGetLength(nProbableChainLength) > 2);
 }
 
 
@@ -813,8 +814,6 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             return true;
         }
 
-
-
         nProbableChainLength = nChainLength;
         if(TargetGetLength(nProbableChainLength) >= 1)
             nPrimesHit++;
@@ -825,6 +824,21 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             else if (chainLen == 6) n6ChainsHit++;
             else if (chainLen == 7) n7ChainsHit++;
             else if (chainLen == 8) n8ChainsHit++;
+
+            //double c = GetPrimeDifficulty(nProbableChainLength);
+            //printf("chain: %.8g %u \n", c, nProbableChainLength);
+
+            /*
+            if (testParams.nCandidateType == PRIME_CHAIN_CUNNINGHAM1)
+                cun1Chains++;
+            else if (testParams.nCandidateType == PRIME_CHAIN_CUNNINGHAM2)
+                cun2Chains++;
+            else
+                twinChains++;
+
+            printf("%u %u %u", cun1Chains, cun2Chains, twinChains);
+            printf("\n");
+            */
 
             if (chainLen >= 6)
             {

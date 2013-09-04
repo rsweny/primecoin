@@ -84,6 +84,7 @@ int64 nStart2 = GetTimeMillis();
 int64 totalPrimorial = 0;
 double totalChainsPerDay = 0;
 double numStats = 0;
+int64 numSieves = 0;
 
 // Settings
 int64 nTransactionFee = 0;
@@ -4725,7 +4726,7 @@ void static BitcoinMiner(CWallet *pwallet)
                 n5ChainCounter += n5ChainsHit;
                 n6ChainCounter += n6ChainsHit;
                 n7ChainCounter += n7ChainsHit;
-                n7ChainCounter += n8ChainsHit;
+                n8ChainCounter += n8ChainsHit;
 //#endif
             }
             if (nMillisNow - nHPSTimerStart > 60000)
@@ -4751,8 +4752,7 @@ void static BitcoinMiner(CWallet *pwallet)
 
 
                         totalChainsPerDay += dChainsPerDay;
-                        totalPrimorial += nPrimorialMultiplier;
-                        double avgPrimorial = (double)totalPrimorial / numStats;
+                        double avgPrimorial = (double)totalPrimorial / (double)numSieves;
                         double avgChainsPerDay = totalChainsPerDay / numStats;
 
                         nHPSTimerStart = nMillisNow;
@@ -4768,8 +4768,8 @@ void static BitcoinMiner(CWallet *pwallet)
                             printf("-- 7-chains/h: %3.5f\n", d7ChainsPerHour);
                             printf("-- 8-chains/h: %3.5f\n", d8ChainsPerHour);
 
-                            double chainRatio1 = d6ChainsPerHour / d5ChainsPerHour;
-                            double chainRatio2 = d7ChainsPerHour / d6ChainsPerHour;
+                            double chainRatio1 = d7ChainsPerHour / d6ChainsPerHour;
+                            double chainRatio2 = d8ChainsPerHour / d7ChainsPerHour;
 
                             unsigned int nTargetLength = TargetGetLength(pblock->nBits);
                             double fullDifficulty = GetPrimeDifficulty(pblock->nBits);
@@ -4786,9 +4786,9 @@ void static BitcoinMiner(CWallet *pwallet)
                             else
                                 blocksPerDay = blocksPerDay1;
 
-                            printf("-- Ratio 5,6: %.4f Ratio 6,7: %.4f\n", chainRatio1, chainRatio2);
+                            printf("-- Ratio 7/6: %.4f Ratio 8/7: %.4f\n", chainRatio1, chainRatio2);
 
-                            printf("%s stats %5.0f prime/s %6.0f test/s %3.6f chain/d | run:%3.2f, avg primorial: %3.1f block/d: %.8g\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerSec, dTestsPerSecond, avgChainsPerDay, totalRunTime/(3600*1000), avgPrimorial, blocksPerDay);
+                            printf("%s stats %5.0f prime/s %6.0f test/s %3.6f chain/d | run: %3.2f, avg primorial: %3.1f block/d: %.8g\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerSec, dTestsPerSecond, avgChainsPerDay, totalRunTime/(3600*1000), avgPrimorial, blocksPerDay);
                         }
                     }
                 }
@@ -4806,30 +4806,66 @@ void static BitcoinMiner(CWallet *pwallet)
                 break;
             if (fNewBlock)
             {
+                numSieves++;
+                totalPrimorial += nPrimorialMultiplier;
+
                 // Primecoin: a sieve+primality round completes
                 // Primecoin: estimate time to block
-                const double dTimeExpectedPrev = dTimeExpected;
-                unsigned int nCalcRoundTests = max(1u, nRoundTests);
-                // Make sure the estimated time is very high if only 0 primes were found
-                if (nRoundPrimesHit == 0)
-                    nCalcRoundTests *= 1000;
-                int64 nRoundTime = (GetTimeMicros() - nPrimeTimerStart); 
-                dTimeExpected = (double) nRoundTime / nCalcRoundTests;
-                double dRoundChainExpected = (double) nRoundTests;
+                if (numSieves % 10 == 0)
+                {
+                    const double dTimeExpectedPrev = dTimeExpected;
+                    unsigned int nCalcRoundTests = max(1u, nRoundTests);
+                    // Make sure the estimated time is very high if only 0 primes were found
+                    if (nRoundPrimesHit == 0)
+                        nCalcRoundTests *= 1000;
+                    int64 nRoundTime = (GetTimeMicros() - nPrimeTimerStart); 
+                    dTimeExpected = (double) nRoundTime / nCalcRoundTests;
+                    double dRoundChainExpected = (double) nRoundTests;
 
-                unsigned int nTargetLength = TargetGetLength(pblock->nBits);
-                for (unsigned int n = 0; n < nTargetLength; n++)
-                {
-                    double dp = EstimateCandidatePrimeProbability(nPrimorialMultiplier, n);
-                    dTimeExpected = dTimeExpected / max(0.01, dp);
-                    dRoundChainExpected *= dp;
-                }
-                dChainExpected += dRoundChainExpected;
-                if (fDebug && GetBoolArg("-printmining"))
-                //if (nRoundTests % 100 == 0)
-                {
-                    double dPrimeProbabilityCalc = EstimateCandidatePrimeProbability(nPrimorialMultiplier, nTargetLength - 1);
-                    printf("PrimecoinMiner() : Round primorial=%u tests=%u primes=%u time=%uus stat_prob=%1.6f calc_prob=%1.6f tochain=%6.3fd expect=%3.9f\n", nPrimorialMultiplier, nRoundTests, nRoundPrimesHit, (unsigned int) nRoundTime, dPrimeProbability, dPrimeProbabilityCalc, ((dTimeExpected/1000000.0))/86400.0, dRoundChainExpected);
+                    unsigned int nTargetLength = TargetGetLength(pblock->nBits);
+                    for (unsigned int n = 0; n < nTargetLength; n++)
+                    {
+                        double dp = EstimateCandidatePrimeProbability(nPrimorialMultiplier,n);
+                        dTimeExpected = dTimeExpected / max(0.01, dp);
+                        dRoundChainExpected *= dp;
+                    }
+                    dChainExpected += dRoundChainExpected;
+
+                    if (fDebug && GetBoolArg("-printmining"))
+                    //if (nRoundTests % 10 == 0)
+                    {
+                        double dPrimeProbabilityCalc = EstimateCandidatePrimeProbability(nPrimorialMultiplier, nTargetLength - 1);
+                        printf("PrimecoinMiner() : Round primorial=%u tests=%u primes=%u time=%ums stat_prob=%1.6f calc_prob=%1.6f tochain=%6.3fd expect=%3.9f\n", nPrimorialMultiplier, nRoundTests, nRoundPrimesHit, (unsigned int)(nRoundTime/1000), dPrimeProbability, dPrimeProbabilityCalc, ((dTimeExpected/1000000.0))/86400.0, dRoundChainExpected);
+                    }
+
+                    // Primecoin: reset sieve+primality round timer
+                    nPrimeTimerStart = GetTimeMicros();
+                    if (dTimeExpected > dTimeExpectedPrev)
+                        fIncrementPrimorial = !fIncrementPrimorial;
+
+                    // Primecoin: primorial always needs to be incremented if only 0 primes were found
+                    if (nRoundPrimesHit == 0)
+                        fIncrementPrimorial = true;
+
+                    nRoundTests = 0;
+                    nRoundPrimesHit = 0;
+
+                    // Primecoin: dynamic adjustment of primorial multiplier
+                    if (fIncrementPrimorial)
+                    {
+                        if (!PrimeTableGetNextPrime(nPrimorialMultiplier))
+                            error("PrimecoinMiner() : primorial increment overflow");
+                    }
+                    else if (nPrimorialMultiplier > nPrimorialHashFactor)
+                    {
+                        if (!PrimeTableGetPreviousPrime(nPrimorialMultiplier))
+                            error("PrimecoinMiner() : primorial decrement overflow");
+                    }
+
+                    if (nPrimorialMultiplier > 47) nPrimorialMultiplier = 31;
+                    else if (nPrimorialMultiplier < 23) nPrimorialMultiplier = 31;
+
+                    Primorial(nPrimorialMultiplier, mpzPrimorial);
                 }
 
                 // Primecoin: update time and nonce
@@ -4859,34 +4895,6 @@ void static BitcoinMiner(CWallet *pwallet)
                 }
                 if (pblock->nNonce >= 0xffff0000)
                     break;
-
-                // Primecoin: reset sieve+primality round timer
-                nPrimeTimerStart = GetTimeMicros();
-                if (dTimeExpected > dTimeExpectedPrev)
-                    fIncrementPrimorial = !fIncrementPrimorial;
-
-                // Primecoin: primorial always needs to be incremented if only 0 primes were found
-                if (nRoundPrimesHit == 0)
-                    fIncrementPrimorial = true;
-
-                nRoundTests = 0;
-                nRoundPrimesHit = 0;
-
-                // Primecoin: dynamic adjustment of primorial multiplier
-                if (fIncrementPrimorial)
-                {
-                    if (!PrimeTableGetNextPrime(nPrimorialMultiplier))
-                        error("PrimecoinMiner() : primorial increment overflow");
-                }
-                else if (nPrimorialMultiplier > nPrimorialHashFactor)
-                {
-                    if (!PrimeTableGetPreviousPrime(nPrimorialMultiplier))
-                        error("PrimecoinMiner() : primorial decrement overflow");
-                }
-
-                if (nPrimorialMultiplier > 37) nPrimorialMultiplier = 29;
-
-                Primorial(nPrimorialMultiplier, mpzPrimorial);
             }
         }
 
