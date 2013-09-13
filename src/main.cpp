@@ -4788,7 +4788,7 @@ void static BitcoinMiner(CWallet *pwallet)
 
                             printf("-- Ratio 7/6: %.4f Ratio 8/7: %.4f\n", chainRatio1, chainRatio2);
 
-                            printf("%s stats %5.0f prime/s %6.0f test/s %3.6f chain/d | run: %3.2f, avg primorial: %3.1f block/d: %.8g\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerSec, dTestsPerSecond, avgChainsPerDay, totalRunTime/(3600*1000), avgPrimorial, blocksPerDay);
+                            printf("%s stats %5.0f prime/s %6.0f test/s %3.6f chain/d | run: %3.2f, avg primorial: %3.1f, block/d: %.8g\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerSec, dTestsPerSecond, avgChainsPerDay, totalRunTime/(3600*1000), avgPrimorial, blocksPerDay);
                         }
                     }
                 }
@@ -4811,7 +4811,7 @@ void static BitcoinMiner(CWallet *pwallet)
 
                 // Primecoin: a sieve+primality round completes
                 // Primecoin: estimate time to block
-                if (numSieves % 10 == 0)
+                if (numSieves % 20 == 0)
                 {
                     const double dTimeExpectedPrev = dTimeExpected;
                     unsigned int nCalcRoundTests = max(1u, nRoundTests);
@@ -4832,7 +4832,6 @@ void static BitcoinMiner(CWallet *pwallet)
                     dChainExpected += dRoundChainExpected;
 
                     if (fDebug && GetBoolArg("-printmining"))
-                    //if (nRoundTests % 10 == 0)
                     {
                         double dPrimeProbabilityCalc = EstimateCandidatePrimeProbability(nPrimorialMultiplier, nTargetLength - 1);
                         printf("PrimecoinMiner() : Round primorial=%u tests=%u primes=%u time=%ums stat_prob=%1.6f calc_prob=%1.6f tochain=%6.3fd expect=%3.9f\n", nPrimorialMultiplier, nRoundTests, nRoundPrimesHit, (unsigned int)(nRoundTime/1000), dPrimeProbability, dPrimeProbabilityCalc, ((dTimeExpected/1000000.0))/86400.0, dRoundChainExpected);
@@ -4861,10 +4860,6 @@ void static BitcoinMiner(CWallet *pwallet)
                         if (!PrimeTableGetPreviousPrime(nPrimorialMultiplier))
                             error("PrimecoinMiner() : primorial decrement overflow");
                     }
-
-                    if (nPrimorialMultiplier > 47) nPrimorialMultiplier = 31;
-                    else if (nPrimorialMultiplier < 23) nPrimorialMultiplier = 31;
-
                     Primorial(nPrimorialMultiplier, mpzPrimorial);
                 }
 

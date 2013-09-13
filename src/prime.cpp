@@ -626,8 +626,9 @@ static bool EulerLagrangeLifchitzPrimalityTestFast(const mpz_class& n, bool fSop
         return true;
     }
     
-    // Failed test, calculate fractional length if len >= 3
-    if (nLength >= 50331648)
+    // Failed test, calculate fractional length if nLength > 3  (3 * 2^24 = 50331648)
+    // this will calculate the fraction for all chains 8 and higher.
+    if (nLength > 50331648)
     {
         mpz_mul(mpzE, mpzR, mpzR);
         mpz_tdiv_r(mpzR, mpzE, n.get_mpz_t()); // derive Fermat test remainder
@@ -786,7 +787,6 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
     // Process a part of the candidates
     while (nTests < nTestsAtOnce && pindexPrev == pindexBest)
     {
-        nTests++;
         if (!lpsieve->GetNextCandidateMultiplier(nTriedMultiplier, nCandidateType))
         {
             // power tests completed for the sieve
@@ -796,6 +796,8 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             fNewBlock = true; // notify caller to change nonce
             return false;
         }
+        nTests++;
+        
         mpzChainOrigin = mpzHashMultiplier * nTriedMultiplier;
         nChainLength = 0;
         if (ProbablePrimeChainTestFast(mpzChainOrigin, testParams))
@@ -810,7 +812,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             nProbableChainLength = nChainLength;
 
             double longChainLen = GetPrimeDifficulty(nProbableChainLength);
-            printf("***BLOCK Long chain mined: %.8g\n", longChainLen);
+            printf("***BLOCK Long chain mined: %.8g, %u\n", longChainLen, nPrimorialMultiplier);
             return true;
         }
 
@@ -873,7 +875,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
                 {
                     double best = GetPrimeDifficulty(nBestChainLength);
                     double longChainLen = GetPrimeDifficulty(nProbableChainLength);
-                   printf("*** Long chain mined: %.8g, max: %.8g\n", longChainLen, best); 
+                   printf("*** Long chain mined: %.8g, max: %.8g, %u\n", longChainLen, best, nPrimorialMultiplier); 
                 }
             }
         }
@@ -1118,7 +1120,7 @@ bool CSieveOfEratosthenes::Weave()
             // Apply the layer to the primary sieve arrays
             if (nLayerSeq < nChainLength)
             {
-                if (nLayerSeq < nBiTwinCC1Layers && nLayerSeq < nBiTwinCC2Layers)
+                if (nLayerSeq < nBiTwinCC2Layers)
                 {
                     for (unsigned int nWord = nMinWord; nWord < nMaxWord; nWord++)
                     {
@@ -1127,7 +1129,7 @@ bool CSieveOfEratosthenes::Weave()
                         vfCompositeBiTwin[nWord] |= vfCompositeLayerCC1[nWord] | vfCompositeLayerCC2[nWord];
                     }
                 }
-                else if (nLayerSeq < nBiTwinCC2Layers)
+                else if (nLayerSeq < nBiTwinCC1Layers)
                 {
                     for (unsigned int nWord = nMinWord; nWord < nMaxWord; nWord++)
                     {
@@ -1156,7 +1158,7 @@ bool CSieveOfEratosthenes::Weave()
                     sieve_word_t *vfExtCC1 = vfExtendedCompositeCunningham1 + nExtensionSeq * nCandidatesWords;
                     sieve_word_t *vfExtCC2 = vfExtendedCompositeCunningham2 + nExtensionSeq * nCandidatesWords;
                     sieve_word_t *vfExtTWN = vfExtendedCompositeBiTwin + nExtensionSeq * nCandidatesWords;
-                    if (nLayerExtendedSeq < nBiTwinCC1Layers && nLayerExtendedSeq < nBiTwinCC2Layers)
+                    if (nLayerExtendedSeq < nBiTwinCC2Layers)
                     {
                         for (unsigned int nWord = nExtMinWord; nWord < nMaxWord; nWord++)
                         {
@@ -1165,7 +1167,7 @@ bool CSieveOfEratosthenes::Weave()
                             vfExtTWN[nWord] |= vfCompositeLayerCC1[nWord] | vfCompositeLayerCC2[nWord];
                         }
                     }
-                    else if (nLayerExtendedSeq < nBiTwinCC2Layers)
+                    else if (nLayerExtendedSeq < nBiTwinCC1Layers)
                     {
                         for (unsigned int nWord = nExtMinWord; nWord < nMaxWord; nWord++)
                         {
