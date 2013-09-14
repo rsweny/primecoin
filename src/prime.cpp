@@ -653,13 +653,13 @@ static bool EulerLagrangeLifchitzPrimalityTestFast(const mpz_class& n, bool fSop
 // Return value:
 //   true - Probable Cunningham Chain found (length at least 2)
 //   false - Not Cunningham Chain
-static bool ProbableCunninghamChainTestFast(const mpz_class& n, bool fSophieGermain, unsigned int& nProbableChainLength, CPrimalityTestParams& testParams)
+static void ProbableCunninghamChainTestFast(const mpz_class& n, bool fSophieGermain, unsigned int& nProbableChainLength, CPrimalityTestParams& testParams)
 {
     nProbableChainLength = 0;
 
     // Fermat test for n first
     if (!FermatProbablePrimalityTestFast(n, nProbableChainLength, testParams, true))
-        return false;
+        return;
 
     // Euler-Lagrange-Lifchitz test for the following numbers in chain
     mpz_class &N = testParams.N;
@@ -673,7 +673,6 @@ static bool ProbableCunninghamChainTestFast(const mpz_class& n, bool fSophieGerm
         if (!EulerLagrangeLifchitzPrimalityTestFast(N, fSophieGermain, nProbableChainLength, testParams))
             break;
     }
-    return (TargetGetLength(nProbableChainLength) > 2);
 }
 
 
@@ -708,10 +707,13 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
         unsigned int nChainLengthCunningham1 = 0;
         unsigned int nChainLengthCunningham2 = 0;
         mpzOriginMinusOne = mpzPrimeChainOrigin - 1;
-        if (ProbableCunninghamChainTestFast(mpzOriginMinusOne, true, nChainLengthCunningham1, testParams))
-        {
+        ProbableCunninghamChainTestFast(mpzOriginMinusOne, true, nChainLengthCunningham1, testParams);
+
+        //only check second part of bitwin if first chain is long enough
+        if (TargetGetLength(nChainLengthCunningham1) > 2) {
             mpzOriginPlusOne = mpzPrimeChainOrigin + 1;
             ProbableCunninghamChainTestFast(mpzOriginPlusOne, false, nChainLengthCunningham2, testParams);
+            
             // Figure out BiTwin Chain length
             // BiTwin Chain allows a single prime at the end for odd length chain
             nChainLength =
@@ -830,7 +832,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             //double c = GetPrimeDifficulty(nProbableChainLength);
             //printf("chain: %.8g %u \n", c, nProbableChainLength);
 
-            /*
+            
             if (testParams.nCandidateType == PRIME_CHAIN_CUNNINGHAM1)
                 cun1Chains++;
             else if (testParams.nCandidateType == PRIME_CHAIN_CUNNINGHAM2)
@@ -840,7 +842,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
 
             printf("%u %u %u", cun1Chains, cun2Chains, twinChains);
             printf("\n");
-            */
+            
 
             if (chainLen >= 6)
             {
@@ -875,7 +877,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
                 {
                     double best = GetPrimeDifficulty(nBestChainLength);
                     double longChainLen = GetPrimeDifficulty(nProbableChainLength);
-                   printf("*** Long chain mined: %.8g, max: %.8g, %u\n", longChainLen, best, nPrimorialMultiplier); 
+                    printf("*** Long chain mined: %.8g, max: %.8g, %u, %u\n", longChainLen, best, nPrimorialMultiplier, testParams.nCandidateType); 
                 }
             }
         }
@@ -1221,15 +1223,15 @@ static const double dLogOneAndHalf = log(1.5);
 double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum)
 {
     // h * q# / r# * s is prime with probability 1/log(h * q# / r# * s),
-    //   (prime number theorem)
-    //   here s ~ max sieve size / 2,
-    //   h ~ 2^255 * 1.5,
-    //   r = 7 (primorial multiplier embedded in the hash)
-    // Euler product to p ~ 1.781072 * log(p)   (Mertens theorem)
+    // (prime number theorem)
+    // here s ~ max sieve size / 2,
+    // h ~ 2^255 * 1.5,
+    // r = 7 (primorial multiplier embedded in the hash)
+    // Euler product to p ~ 1.781072 * log(p) (Mertens theorem)
     // If sieve is weaved up to p, a number in a candidate chain is a prime
     // with probability
-    //     (1/log(h * q# / r# * s)) / (1/(1.781072 * log(p)))
-    //   = 1.781072 * log(p) / (255 * log(2) + log(1.5) + log(q# / r#) + log(s))
+    // (1/log(h * q# / r# * s)) / (1/(1.781072 * log(p)))
+    // = 1.781072 * log(p) / (255 * log(2) + log(1.5) + log(q# / r#) + log(s))
     //
     // This model assumes that the numbers on a chain being primes are
     // statistically independent after running the sieve, which might not be
