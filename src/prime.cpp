@@ -832,7 +832,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             //double c = GetPrimeDifficulty(nProbableChainLength);
             //printf("chain: %.8g %u \n", c, nProbableChainLength);
 
-            
+            /*
             if (testParams.nCandidateType == PRIME_CHAIN_CUNNINGHAM1)
                 cun1Chains++;
             else if (testParams.nCandidateType == PRIME_CHAIN_CUNNINGHAM2)
@@ -842,6 +842,8 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
 
             printf("%u %u %u", cun1Chains, cun2Chains, twinChains);
             printf("\n");
+            */
+
             
 
             if (chainLen >= 6)
