@@ -210,12 +210,13 @@ static const CRPCCommand vRPCCommands[] =
     { "getdifficulty",          &getdifficulty,          true,      false },
     { "getgenerate",            &getgenerate,            true,      false },
     { "setgenerate",            &setgenerate,            true,      false },
-    { "getsievepercentage",     &getsievepercentage,     true,      false },
-    { "setsievepercentage",     &setsievepercentage,     true,      false },
+    { "getsievesize",           &getsievesize,           true,      false },
+    { "setsievesize",           &setsievesize,           true,      false },
+    { "getsievefilterprimes",   &getsievefilterprimes,   true,      false },
+    { "setsievefilterprimes",   &setsievefilterprimes,   true,      false },
     { "getsieveextensions",     &getsieveextensions,     true,      false },
     { "setsieveextensions",     &setsieveextensions,     true,      false },
     { "getprimespersec",        &getprimespersec,        true,      false },
-    { "getchainspermin",        &getchainspermin,        true,      false },
     { "getinfo",                &getinfo,                true,      false },
     { "getmininginfo",          &getmininginfo,          true,      false },
     { "getnewaddress",          &getnewaddress,          true,      false },
@@ -492,7 +493,7 @@ bool HTTPAuthorized(map<string, string>& mapHeaders)
         return false;
     string strUserPass64 = strAuth.substr(6); boost::trim(strUserPass64);
     string strUserPass = DecodeBase64(strUserPass64);
-    return strUserPass == strRPCUserColonPass;
+    return TimingResistantEqual(strUserPass, strRPCUserColonPass);
 }
 
 //
@@ -1158,7 +1159,8 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "getaddednodeinfo"       && n > 0) ConvertTo<bool>(params[0]);
     if (strMethod == "setgenerate"            && n > 0) ConvertTo<bool>(params[0]);
     if (strMethod == "setgenerate"            && n > 1) ConvertTo<boost::int64_t>(params[1]);
-    if (strMethod == "setsievepercentage"     && n > 0) ConvertTo<boost::int64_t>(params[0]);
+    if (strMethod == "setsievesize"           && n > 0) ConvertTo<boost::int64_t>(params[0]);
+    if (strMethod == "setsievefilterprimes"   && n > 0) ConvertTo<boost::int64_t>(params[0]);
     if (strMethod == "setsieveextensions"     && n > 0) ConvertTo<boost::int64_t>(params[0]);
     if (strMethod == "sendtoaddress"          && n > 1) ConvertTo<double>(params[1]);
     if (strMethod == "settxfee"               && n > 0) ConvertTo<double>(params[0]);

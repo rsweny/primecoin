@@ -1,7 +1,7 @@
 TEMPLATE = app
 TARGET = primecoin-qt
 macx:TARGET = "Primecoin-Qt"
-VERSION = 0.8.3
+VERSION = 0.1.2
 INCLUDEPATH += src src/json src/qt
 QT += network
 DEFINES += QT_GUI BOOST_THREAD_USE_LIB BOOST_SPIRIT_THREADSAFE
@@ -9,7 +9,8 @@ CONFIG += no_include_pwd
 CONFIG += thread
 
 # avoid warnings about FD_SETSIZE being redefined
-win32:DEFINES += FD_SETSIZE=1024
+# Windows x64 needs BOOST_USE_WINDOWS_H and WIN32_LEAN_AND_MEAN
+win32:DEFINES += FD_SETSIZE=1024 BOOST_USE_WINDOWS_H WIN32_LEAN_AND_MEAN WINVER=0x500
 
 # for boost 1.37, add -mt to the boost libraries
 # use: qmake BOOST_LIB_SUFFIX=-mt
@@ -28,9 +29,11 @@ UI_DIR = build
 # use: qmake "RELEASE=1"
 contains(RELEASE, 1) {
     # Mac: compile for maximum compatibility (10.5, 32-bit)
-    macx:QMAKE_CXXFLAGS += -mmacosx-version-min=10.5 -arch i386 -isysroot /Developer/SDKs/MacOSX10.5.sdk
-    macx:QMAKE_CFLAGS += -mmacosx-version-min=10.5 -arch i386 -isysroot /Developer/SDKs/MacOSX10.5.sdk
-    macx:QMAKE_OBJECTIVE_CFLAGS += -mmacosx-version-min=10.5 -arch i386 -isysroot /Developer/SDKs/MacOSX10.5.sdk
+    # Primecoin HP: support both i386 and x86_64 for best performance and compatibility
+    # Primecoin HP: require 10.6 at the minimum
+    macx:QMAKE_CXXFLAGS += -mmacosx-version-min=10.6 -arch i386 -arch x86_64 -isysroot /Developer/SDKs/MacOSX10.6.sdk
+    macx:QMAKE_CFLAGS += -mmacosx-version-min=10.6 -arch i386 -arch x86_64 -isysroot /Developer/SDKs/MacOSX10.6.sdk
+    macx:QMAKE_OBJECTIVE_CFLAGS += -mmacosx-version-min=10.6 -arch i386 -arch x86_64 -isysroot /Developer/SDKs/MacOSX10.6.sdk
 
     !win32:!macx {
         # Linux: static link and extra security (see: https://wiki.debian.org/Hardening)
@@ -39,6 +42,13 @@ contains(RELEASE, 1) {
 	# Linux: Enable bundling libgmp.so with the binary
 	LIBS += -Wl,-rpath,\\\$$ORIGIN
     }
+}
+
+macx {
+    # Primecoin HP: Always optimize on OS X
+    QMAKE_CXXFLAGS += -O2
+    QMAKE_CFLAGS += -O2
+    QMAKE_OBJECTIVE_CFLAGS += -O2
 }
 
 !win32 {
@@ -52,8 +62,10 @@ contains(RELEASE, 1) {
 QMAKE_CXXFLAGS *= -D_FORTIFY_SOURCE=2
 # for extra security on Windows: enable ASLR and DEP via GCC linker flags
 win32:QMAKE_LFLAGS *= -Wl,--dynamicbase -Wl,--nxcompat
-# on Windows: enable GCC large address aware linker flag
-win32:QMAKE_LFLAGS *= -Wl,--large-address-aware
+# on Windows x86: enable GCC large address aware linker flag
+!contains(QMAKE_HOST.arch, x86_64) {
+	win32:QMAKE_LFLAGS *= -Wl,--large-address-aware
+}
 
 # use: qmake "USE_QRCODE=1"
 # libqrencode (http://fukuchi.org/works/qrencode/index.en.html) must be installed for support
@@ -418,11 +430,10 @@ LIBS += $$join(BOOST_LIB_PATH,,-L,) $$join(BDB_LIB_PATH,,-L,) $$join(OPENSSL_LIB
 LIBS += -lssl -lcrypto -ldb_cxx$$BDB_LIB_SUFFIX
 # -lgdi32 has to happen after -lcrypto (see  #681)
 win32:LIBS += -lws2_32 -lshlwapi -lmswsock -lole32 -loleaut32 -luuid -lgdi32
-LIBS += -lboost_system$$BOOST_LIB_SUFFIX -lboost_filesystem$$BOOST_LIB_SUFFIX -lboost_program_options$$BOOST_LIB_SUFFIX -lboost_thread$$BOOST_THREAD_LIB_SUFFIX
-win32:LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
-macx:LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
+LIBS += -lboost_system$$BOOST_LIB_SUFFIX -lboost_filesystem$$BOOST_LIB_SUFFIX -lboost_program_options$$BOOST_LIB_SUFFIX -lboost_thread$$BOOST_THREAD_LIB_SUFFIX -lboost_chrono$$BOOST_LIB_SUFFIX -lboost_timer$$BOOST_LIB_SUFFIX
 # Link dynamically against GMP
-LIBS += -Wl,-Bdynamic -lgmp
+!macx:LIBS += -Wl,-Bdynamic -lgmp
+else:LIBS += -lgmp
 
 contains(RELEASE, 1) {
     !win32:!macx {

@@ -614,7 +614,7 @@ void CNode::copyStats(CNodeStats &stats)
     X(nTimeConnected);
     X(addrName);
     X(nVersion);
-    X(strSubVer);
+    X(cleanSubVer);
     X(fInbound);
     X(nStartingHeight);
     X(nMisbehavior);
@@ -1196,11 +1196,13 @@ static const char *strMainNetDNSSeed[][2] = {
     {"primecoin.net", "seed.ppcoin.net"},
     {"xpm.altcointech.net", "dnsseed.xpm.altcointech.net"},
     {"xpm2.altcointech.net", "dnsseed.xpm2.altcointech.net"},
+    {"primeseed.muuttuja.org", "primeseed.muuttuja.org"},
     {NULL, NULL}
 };
 
 static const char *strTestNetDNSSeed[][2] = {
     {"primecoin.net", "tnseed.ppcoin.net"},
+    {"primeseed.muuttuja.org", "primeseed.muuttuja.org"},
     {NULL, NULL}
 };
 
@@ -1246,16 +1248,17 @@ void ThreadDNSAddressSeed()
 
 
 
-
+// Physical IP seeds: 32-bit IPv4 addresses: e.g. 178.33.22.32 = 0x201621b2
 unsigned int pnSeedMainNet[] =
 {
-    0x201621b2, 0x3a38be58, 0xde3cc718, 0x732dfb54, 0xf3c645d3, 0x48926257,
-    0x746f1f4e, 0xaed7175e,
+    0xde3cc718, 0x43b9191f, 0x79753932, 0x70d6dd36, 0x746f1f4e, 0x732dfb54,
+    0x48926257, 0x3a38be58, 0xaed7175e, 0x7714166b, 0x201621b2, 0x96706ab8,
+    0x2fafedc0, 0x77daf1c0, 0x4677c7c6, 0xf3c645d3,
 };
 
 unsigned int pnSeedTestNet[] =
 {
-    0x0a1621b2,
+    0x184bbb25, 0x0a1621b2,
 };
 
 void DumpAddresses()
@@ -1562,6 +1565,9 @@ void ThreadMessageHandler()
         CNode* pnodeTrickle = NULL;
         if (!vNodesCopy.empty())
             pnodeTrickle = vNodesCopy[GetRand(vNodesCopy.size())];
+
+        bool fSleep = true;
+
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
             if (pnode->fDisconnect)
@@ -1571,8 +1577,18 @@ void ThreadMessageHandler()
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
                 if (lockRecv)
+                {
                     if (!ProcessMessages(pnode))
                         pnode->CloseSocketDisconnect();
+
+                    if (pnode->nSendSize < SendBufferSize())
+                    {
+                        if (!pnode->vRecvGetData.empty() || (!pnode->vRecvMsg.empty() && pnode->vRecvMsg[0].complete()))
+                        {
+                            fSleep = false;
+                        }
+                    }
+                }
             }
             boost::this_thread::interruption_point();
 
@@ -1591,7 +1607,8 @@ void ThreadMessageHandler()
                 pnode->Release();
         }
 
-        MilliSleep(100);
+        if (fSleep)
+            MilliSleep(100);
     }
 }
 
@@ -1655,13 +1672,13 @@ bool BindListenPort(const CService &addrBind, string& strError)
     // some systems don't have IPV6_V6ONLY but are always v6only; others do have the option
     // and enable it by default or not. Try to enable it, if possible.
     if (addrBind.IsIPv6()) {
+#ifdef IPV6_V6ONLY
 #ifdef WIN32
         int nProtLevel = 10 /* PROTECTION_LEVEL_UNRESTRICTED */;
         int nParameterId = 23 /* IPV6_PROTECTION_LEVEl */;
         // this call is allowed to fail
         setsockopt(hListenSocket, IPPROTO_IPV6, nParameterId, (const char*)&nProtLevel, sizeof(int));
 #else
-#ifdef IPV6_V6ONLY
         setsockopt(hListenSocket, IPPROTO_IPV6, IPV6_V6ONLY, (void*)&nOne, sizeof(int));
 #endif
 #endif
