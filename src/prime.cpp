@@ -122,7 +122,7 @@ void PrintCompactStatistics(double totalRuntime)
         strOutput = "-- CHAINSTATS ";
     else
         strOutput = strprintf("%s -- CHAINSTATS ", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
-    for (unsigned int i = 4; i < nMaxChainLength; i++)
+    for (unsigned int i = 3; i < nMaxChainLength; i++)
     {
         if(vTotalChainsFound[i])
         {
