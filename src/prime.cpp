@@ -911,6 +911,11 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             nPrimesHit++;
             vChainsFound[nChainPrimeLength - 1]++;
         }
+        if (nChainPrimeLength >= 9)
+        {
+            double longChainLen = GetPrimeDifficulty(testParams.nChainLength);
+            printf("*** Long chain mined: %.8g, %u, %u\n", longChainLen, nTriedMultiplier, testParams.nCandidateType); 
+        }
 
         // Check if a chain was found
         if (fChainFound)
