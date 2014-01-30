@@ -4661,11 +4661,11 @@ void static BitcoinMiner(CWallet *pwallet)
         unsigned int nTransactionsUpdatedLast = nTransactionsUpdated;
         CBlockIndex* pindexPrev = pindexBest;
 
-	// pindexBest may be NULL (e.g. when doing a -reindex)
-	if (!pindexPrev) {
-		MilliSleep(1000);
-		continue;
-	}
+        // pindexBest may be NULL (e.g. when doing a -reindex)
+        if (!pindexPrev) {
+        	MilliSleep(1000);
+        	continue;
+        }
 
         auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(reservekey));
         if (!pblocktemplate.get())
@@ -4814,12 +4814,10 @@ void static BitcoinMiner(CWallet *pwallet)
                     {
                         nLogTime = nMillisNow;
                         if (fLogTimestamps)
-                            printf("-- MINING: %7.0f prime/s %7.0f test/s %3.8f chain/d %3.8f block/d\n", dPrimesPerSec, dTestsPerSec, dChainsPerDay, dBlocksPerDay);
+                            printf("-- MINING: %6.0f prime/s %6.0f test/s  %3.8f chain/d  %3.8f block/d  run: %3.2f,\n", dPrimesPerSec, dTestsPerSec, dChainsPerDay, dBlocksPerDay, totalRunTime/(3600*1000));
                         else
-                            printf("%s -- MINING: %7.0f prime/s %7.0f test/s %3.8f chain/d %3.8f block/d\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerSec, dTestsPerSec, dChainsPerDay, dBlocksPerDay);
+                            printf("%s -- MINING: %7.0f prime/s %7.0f test/s  %3.8f chain/d  %3.8f block/d  run: %3.2f,\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerSec, dTestsPerSec, dChainsPerDay, dBlocksPerDay, totalRunTime/(3600*1000));
                         PrintCompactStatistics(totalRunTime);
-
-                        //PrintMinerStatistics();
                     }
                 }
             }
@@ -4837,49 +4835,51 @@ void static BitcoinMiner(CWallet *pwallet)
             if (fNewBlock)
             {
                 // Primecoin: a sieve+primality round completes
-                // Primecoin: estimate time to block
-                unsigned int nCalcRoundTests = max(1u, nRoundTests);
-                // Make sure the estimated time is very high if only 0 primes were found
-                if (nRoundPrimesHit == 0)
-                    nCalcRoundTests *= 1000;
-                int64 nRoundTime = (GetTimeMicros() - nPrimeTimerStart); 
-                double dTimeExpected = (double) nRoundTime / nCalcRoundTests;
-                double dRoundChainExpected = (double) nRoundTests;
-                unsigned int nTargetLength = TargetGetLength(pblock->nBits);
-                unsigned int nRequestedLength = nTargetLength;
-                // Override target length if requested
-                if (nSieveTargetLength > 0)
-                    nRequestedLength = nSieveTargetLength;
-                // Calculate expected number of chains for requested length
-                for (unsigned int n = 0; n < nRequestedLength; n++)
-                {
-                    double dPrimeProbability = EstimateCandidatePrimeProbability(nPrimorialMultiplier, n, nMiningProtocol);
-                    dTimeExpected /= dPrimeProbability;
-                    dRoundChainExpected *= dPrimeProbability;
-                }
-                dChainExpected += dRoundChainExpected;
-                // Calculate expected number of blocks
-                double dRoundBlockExpected = dRoundChainExpected;
-                for (unsigned int n = nRequestedLength; n < nTargetLength; n++)
-                {
-                    double dPrimeProbability = EstimateNormalPrimeProbability(nPrimorialMultiplier, n, nMiningProtocol);
-                    dTimeExpected /= dPrimeProbability;
-                    dRoundBlockExpected *= dPrimeProbability;
-                }
-                // Calculate the effect of fractional difficulty
-                double dFractionalDiff = GetPrimeDifficulty(pblock->nBits) - nTargetLength;
-                double dExtraPrimeProbability = EstimateNormalPrimeProbability(nPrimorialMultiplier, nTargetLength, nMiningProtocol);
-                double dDifficultyFactor = ((1.0 - dFractionalDiff) * (1.0 - dExtraPrimeProbability) + dExtraPrimeProbability);
-                dRoundBlockExpected *= dDifficultyFactor;
-                dTimeExpected /= dDifficultyFactor;
-                dBlockExpected += dRoundBlockExpected;
-                // Calculate the sum of expected blocks and time
-                dSumBlockExpected += dRoundBlockExpected;
-                nSumRoundTime += nRoundTime;
                 nRoundNum++;
                 if (nRoundNum >= nRoundSamples)
                 {
-                    // Calculate average expected blocks per time
+                    // Primecoin: estimate time to block
+                    unsigned int nCalcRoundTests = max(1u, nRoundTests);
+                    // Make sure the estimated time is very high if only 0 primes were found
+                    if (nRoundPrimesHit == 0)
+                        nCalcRoundTests *= 1000;
+                    int64 nRoundTime = (GetTimeMicros() - nPrimeTimerStart); 
+                    double dTimeExpected = (double) nRoundTime / nCalcRoundTests;
+                    double dRoundChainExpected = (double) nRoundTests;
+                    unsigned int nTargetLength = TargetGetLength(pblock->nBits);
+                    unsigned int nRequestedLength = nTargetLength;
+                    // Override target length if requested
+                    if (nSieveTargetLength > 0)
+                        nRequestedLength = nSieveTargetLength;
+                    // Calculate expected number of chains for requested length
+                    for (unsigned int n = 0; n < nRequestedLength; n++)
+                    {
+                        double dPrimeProbability = EstimateCandidatePrimeProbability(nPrimorialMultiplier, n, nMiningProtocol);
+                        dTimeExpected /= dPrimeProbability;
+                        dRoundChainExpected *= dPrimeProbability;
+                    }
+                    dChainExpected += dRoundChainExpected;
+                    // Calculate expected number of blocks
+                    double dRoundBlockExpected = dRoundChainExpected;
+                    for (unsigned int n = nRequestedLength; n < nTargetLength; n++)
+                    {
+                        double dPrimeProbability = EstimateNormalPrimeProbability(nPrimorialMultiplier, n, nMiningProtocol);
+                        dTimeExpected /= dPrimeProbability;
+                        dRoundBlockExpected *= dPrimeProbability;
+                    }
+                    // Calculate the effect of fractional difficulty
+                    double dFractionalDiff = GetPrimeDifficulty(pblock->nBits) - nTargetLength;
+                    double dExtraPrimeProbability = EstimateNormalPrimeProbability(nPrimorialMultiplier, nTargetLength, nMiningProtocol);
+                    double dDifficultyFactor = ((1.0 - dFractionalDiff) * (1.0 - dExtraPrimeProbability) + dExtraPrimeProbability);
+                    dRoundBlockExpected *= dDifficultyFactor;
+                    dTimeExpected /= dDifficultyFactor;
+                    dBlockExpected += dRoundBlockExpected;
+                    // Calculate the sum of expected blocks and time
+                    dSumBlockExpected += dRoundBlockExpected;
+                    nSumRoundTime += nRoundTime;
+
+
+                    // Calculate average expected blocks per time and auto-adjust primorial up or down to improve result
                     double dAverageBlockExpected = dSumBlockExpected / ((double) nSumRoundTime / 1000000.0);
                     // Compare to previous value
                     if (dAverageBlockExpected > dAverageBlockExpectedPrev)
@@ -4894,22 +4894,24 @@ void static BitcoinMiner(CWallet *pwallet)
                     dSumBlockExpected = 0.0;
                     nSumRoundTime = 0;
                     nRoundNum = 0;
-                }
-                if (fDebug && GetBoolArg("-printmining"))
-                {
-                    double dPrimeProbabilityBegin = EstimateCandidatePrimeProbability(nPrimorialMultiplier, 0, nMiningProtocol);
-                    double dPrimeProbabilityEnd = EstimateCandidatePrimeProbability(nPrimorialMultiplier, nTargetLength - 1, nMiningProtocol);
-                    printf("PrimecoinMiner() : Round primorial=%u tests=%u primes=%u time=%uus pprob=%1.6f pprob2=%1.6f pprobextra=%1.6f tochain=%6.3fd expect=%3.12f expectblock=%3.12f\n", nPrimorialMultiplier, nRoundTests, nRoundPrimesHit, (unsigned int) nRoundTime, dPrimeProbabilityBegin, dPrimeProbabilityEnd, dExtraPrimeProbability, ((dTimeExpected/1000000.0))/86400.0, dRoundChainExpected, dRoundBlockExpected);
-                }
 
-                // Primecoin: primorial always needs to be incremented if only 0 primes were found
-                if (nRoundPrimesHit == 0)
-                    nAdjustPrimorial = 1;
 
-                // Primecoin: reset sieve+primality round timer
-                nPrimeTimerStart = GetTimeMicros();
-                nRoundTests = 0;
-                nRoundPrimesHit = 0;
+                    if (fDebug && GetBoolArg("-printmining"))
+                    {
+                        double dPrimeProbabilityBegin = EstimateCandidatePrimeProbability(nPrimorialMultiplier, 0, nMiningProtocol);
+                        double dPrimeProbabilityEnd = EstimateCandidatePrimeProbability(nPrimorialMultiplier, nTargetLength - 1, nMiningProtocol);
+                        printf("PrimecoinMiner() : Round primorial=%u tests=%u primes=%u time=%uus pprob=%1.6f pprob2=%1.6f pprobextra=%1.6f tochain=%6.3fd expect=%3.12f expectblock=%3.12f\n", nPrimorialMultiplier, nRoundTests, nRoundPrimesHit, (unsigned int) nRoundTime, dPrimeProbabilityBegin, dPrimeProbabilityEnd, dExtraPrimeProbability, ((dTimeExpected/1000000.0))/86400.0, dRoundChainExpected, dRoundBlockExpected);
+                    }
+
+                    // Primecoin: primorial always needs to be incremented if only 0 primes were found
+                    if (nRoundPrimesHit == 0)
+                        nAdjustPrimorial = 1;
+
+                    // Primecoin: reset sieve+primality round timer
+                    nPrimeTimerStart = GetTimeMicros();
+                    nRoundTests = 0;
+                    nRoundPrimesHit = 0;
+                }
 
                 // Primecoin: update time and nonce
                 pblock->nTime = max(pblock->nTime, (unsigned int) GetAdjustedTime());

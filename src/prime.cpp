@@ -692,7 +692,7 @@ static bool EulerLagrangeLifchitzPrimalityTestFast(const mpz_class& n, bool fSop
 // Return value:
 //   true - Probable Cunningham Chain found (length at least 2)
 //   false - Not Cunningham Chain
-static bool ProbableCunninghamChainTestFast(const mpz_class& n, bool fSophieGermain, bool fFermatTest, unsigned int& nProbableChainLength, CPrimalityTestParams& testParams)
+static bool ProbableCunninghamChainTestFast(const mpz_class& n, bool fSophieGermain, unsigned int& nProbableChainLength, CPrimalityTestParams& testParams)
 {
     nProbableChainLength = 0;
 
@@ -713,7 +713,10 @@ static bool ProbableCunninghamChainTestFast(const mpz_class& n, bool fSophieGerm
              break;
     }
 
-    // we only care about chains 8/2 = 4 or higher
+    // we only care about chains 4 or higher
+    // length 3 can become a length 7 bi-Twin, 
+    // so we are discarding some chains that would turn out to be length 7
+    // current difficulty is 10 so this is not a problem
     return (TargetGetLength(nProbableChainLength) >= 4);
 }
 
@@ -734,23 +737,23 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
     if (nCandidateType == PRIME_CHAIN_CUNNINGHAM1)
     {
         mpzOriginMinusOne = mpzPrimeChainOrigin - 1;
-        ProbableCunninghamChainTestFast(mpzOriginMinusOne, true, false, nChainLength, testParams);
+        ProbableCunninghamChainTestFast(mpzOriginMinusOne, true, nChainLength, testParams);
     }
     else if (nCandidateType == PRIME_CHAIN_CUNNINGHAM2)
     {
         // Test for Cunningham Chain of second kind
         mpzOriginPlusOne = mpzPrimeChainOrigin + 1;
-        ProbableCunninghamChainTestFast(mpzOriginPlusOne, false, false, nChainLength, testParams);
+        ProbableCunninghamChainTestFast(mpzOriginPlusOne, false, nChainLength, testParams);
     }
     else if (nCandidateType == PRIME_CHAIN_BI_TWIN)
     {
         unsigned int nChainLengthCunningham1 = 0;
         unsigned int nChainLengthCunningham2 = 0;
         mpzOriginMinusOne = mpzPrimeChainOrigin - 1;
-        if (ProbableCunninghamChainTestFast(mpzOriginMinusOne, true, false, nChainLengthCunningham1, testParams))
+        if (ProbableCunninghamChainTestFast(mpzOriginMinusOne, true, nChainLengthCunningham1, testParams))
         {
             mpzOriginPlusOne = mpzPrimeChainOrigin + 1;
-            ProbableCunninghamChainTestFast(mpzOriginPlusOne, false, false, nChainLengthCunningham2, testParams);
+            ProbableCunninghamChainTestFast(mpzOriginPlusOne, false, nChainLengthCunningham2, testParams);
             // Figure out BiTwin Chain length
             // BiTwin Chain allows a single prime at the end for odd length chain
             nChainLength =
@@ -865,35 +868,26 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
     }
     fNewBlock = false;
 
-    int64 nStart = 0; // microsecond timer
     if (!sieve.IsReady() || sieve.IsDepleted())
     {
         // Build sieve
-        if (fDebug && GetBoolArg("-printmining"))
-            nStart = GetTimeMicros();
         sieve.Reset(nSieveSize, nSieveFilterPrimes, nSieveExtensions, nL1CacheSize, nBits, mpzHash, mpzFixedMultiplier, pindexPrev);
         sieve.Weave();
-        if (fDebug && GetBoolArg("-printmining"))
-            printf("MineProbablePrimeChain() : new sieve (%u/%u@%u%%) ready in %uus\n", sieve.GetCandidateCount(), nSieveSize, sieve.GetProgressPercentage(), (unsigned int) (GetTimeMicros() - nStart));
+        //if (fDebug && GetBoolArg("-printmining"))
+        //    printf("MineProbablePrimeChain() : new sieve (%u/%u@%u%%)\n", sieve.GetCandidateCount(), nSieveSize, sieve.GetProgressPercentage());
         return false; // sieve generation takes time so return now
     }
-
-    if (fDebug && GetBoolArg("-printmining2"))
-        nStart = GetTimeMicros();
-
-    // Number of candidates to be tested during a single call to this function
-    const unsigned int nTestsAtOnce = 500;
     mpzHashFixedMult = mpzHash * mpzFixedMultiplier;
 
     // Process a part of the candidates
-    while (nTests < nTestsAtOnce && pindexPrev == pindexBest)
+    while (pindexPrev == pindexBest)
     {
         unsigned int nTriedMultiplier = 0;
         if (!sieve.GetNextCandidateMultiplier(nTriedMultiplier, nCandidateType))
         {
             // power tests completed for the sieve
-            if (fDebug && GetBoolArg("-printmining2"))
-                printf("MineProbablePrimeChain() : %u tests (%u primes) in %uus\n", nTests, nPrimesHit, (unsigned int) (GetTimeMicros() - nStart));
+            //if (fDebug && GetBoolArg("-printmining2"))
+            //    printf("MineProbablePrimeChain() OUT: %u tests (%u primes)\n", nTests, nPrimesHit);
             fNewBlock = true; // notify caller to change nonce
             return false;
         }
@@ -902,8 +896,8 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
         bool fChainFound = ProbablePrimeChainTestFast(mpzChainOrigin, testParams);
         unsigned int nChainPrimeLength = TargetGetLength(nChainLength);
 
-        if (fDebug && GetBoolArg("-debugsieve"))
-            SieveDebugChecks(nBits, nTriedMultiplier, nCandidateType, mpzHash, mpzFixedMultiplier, mpzChainOrigin);
+        //if (fDebug && GetBoolArg("-debugsieve"))
+        //    SieveDebugChecks(nBits, nTriedMultiplier, nCandidateType, mpzHash, mpzFixedMultiplier, mpzChainOrigin);
 
         // Collect mining statistics
         if(nChainPrimeLength >= 1)
@@ -932,7 +926,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
     }
     
     if (fDebug && GetBoolArg("-printmining2"))
-        printf("MineProbablePrimeChain() : %u tests (%u primes) in %uus\n", nTests, nPrimesHit, (unsigned int) (GetTimeMicros() - nStart));
+        printf("MineProbablePrimeChain() : %u tests (%u primes)\n", nTests, nPrimesHit);
     
     return false; // stop as new block arrived
 }
