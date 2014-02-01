@@ -2229,9 +2229,11 @@ CBigNum CBlockIndex::GetBlockWork() const
     //   fractional multiplier = 1 / meeting target rate
     //       = (TransitionRatio * FractionalDiff) / (TransitionRatio - 1 + FractionalDiff)
     uint64 nFractionalDifficulty = TargetGetFractionalDifficulty(nBits);
+
     unsigned int nWorkExp = 8;
     nWorkExp += nWorkTransitionRatioLog * TargetGetLength(nBits);
     CBigNum bnWork = CBigNum(1) << nWorkExp;
+
     bnWork *= ((uint64) nWorkTransitionRatio) * nFractionalDifficulty;
     bnWork /= (((uint64) nWorkTransitionRatio - 1) * nFractionalDifficultyMin + nFractionalDifficulty);
     return bnWork;
@@ -4887,13 +4889,13 @@ void static BitcoinMiner(CWallet *pwallet)
                 double dRoundBlockExpected = dRoundChainExpected;
                 for (unsigned int n = nRequestedLength; n < nTargetLength; n++)
                 {
-                    double dPrimeProbability = EstimateNormalPrimeProbability(nPrimorialMultiplier, n, nMiningProtocol);
+                    double dPrimeProbability = 0.029; //EstimateNormalPrimeProbability(nPrimorialMultiplier, n, nMiningProtocol);
                     dTimeExpected /= dPrimeProbability;
                     dRoundBlockExpected *= dPrimeProbability;
                 }
                 // Calculate the effect of fractional difficulty
                 double dFractionalDiff = GetPrimeDifficulty(pblock->nBits) - nTargetLength;
-                double dExtraPrimeProbability = EstimateNormalPrimeProbability(nPrimorialMultiplier, nTargetLength, nMiningProtocol);
+                double dExtraPrimeProbability = 0.029; //EstimateNormalPrimeProbability(nPrimorialMultiplier, nTargetLength, nMiningProtocol);
                 double dDifficultyFactor = ((1.0 - dFractionalDiff) * (1.0 - dExtraPrimeProbability) + dExtraPrimeProbability);
                 dRoundBlockExpected *= dDifficultyFactor;
                 dTimeExpected /= dDifficultyFactor;
